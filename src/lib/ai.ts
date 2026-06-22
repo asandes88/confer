@@ -1,7 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { Company, CompanyInsight, OverviewInsight } from '../types'
 
+// If a proxy URL is baked in at build time (VITE_PROXY_URL), all requests go
+// through it and the user's own key is not needed — the key lives server-side
+// in the proxy. Otherwise we fall back to the user pasting their own key.
+const PROXY_URL = (import.meta.env.VITE_PROXY_URL ?? '').trim().replace(/\/+$/, '')
+
+/** True when a secure proxy is configured, so end users don't need a key. */
+export const usingProxy = PROXY_URL.length > 0
+
 export function makeClient(apiKey: string): Anthropic {
+  if (usingProxy) {
+    // Key is injected by the proxy; the placeholder is never used upstream.
+    return new Anthropic({ apiKey: 'via-proxy', baseURL: PROXY_URL, dangerouslyAllowBrowser: true })
+  }
   return new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
 }
 

@@ -27,11 +27,12 @@ interface Props {
   apiKey: string
   model: string
   lang: string
+  proxyMode?: boolean
   onClose: () => void
   onSave: (v: { apiKey: string; model: string; lang: string }) => void
 }
 
-export default function SettingsModal({ open, apiKey, model, lang, onClose, onSave }: Props) {
+export default function SettingsModal({ open, apiKey, model, lang, proxyMode = false, onClose, onSave }: Props) {
   const [key, setKey] = useState(apiKey)
   const [m, setM] = useState(model)
   const [l, setL] = useState(lang)
@@ -69,43 +70,55 @@ export default function SettingsModal({ open, apiKey, model, lang, onClose, onSa
               </button>
             </div>
 
-            <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-white/80">
-              <Key size={15} className="text-violet-400" /> Claude API key
-            </label>
-            <div className="relative">
-              <input
-                type={reveal ? 'text' : 'password'}
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder="sk-ant-..."
-                autoComplete="off"
-                spellCheck={false}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 pr-10 font-mono text-sm outline-none transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/20"
-              />
-              <button
-                type="button"
-                onClick={() => setReveal((r) => !r)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80"
-              >
-                {reveal ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            <a
-              href="https://console.anthropic.com/settings/keys"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1.5 inline-flex items-center gap-1 text-xs text-cyan-300/80 hover:text-cyan-200"
-            >
-              Get a key from the Anthropic Console <ExternalLink size={12} />
-            </a>
+            {proxyMode ? (
+              <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3.5 text-sm text-white/70">
+                <ShieldCheck size={26} className="shrink-0 text-emerald-400" />
+                <span>
+                  AI insights are powered by a <strong className="text-white/90">secure proxy</strong> — no API key
+                  needed. Your team's key is stored server-side and never reaches the browser.
+                </span>
+              </div>
+            ) : (
+              <>
+                <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-white/80">
+                  <Key size={15} className="text-violet-400" /> Claude API key
+                </label>
+                <div className="relative">
+                  <input
+                    type={reveal ? 'text' : 'password'}
+                    value={key}
+                    onChange={(e) => setKey(e.target.value)}
+                    placeholder="sk-ant-..."
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 pr-10 font-mono text-sm outline-none transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setReveal((r) => !r)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80"
+                  >
+                    {reveal ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <a
+                  href="https://console.anthropic.com/settings/keys"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1.5 inline-flex items-center gap-1 text-xs text-cyan-300/80 hover:text-cyan-200"
+                >
+                  Get a key from the Anthropic Console <ExternalLink size={12} />
+                </a>
 
-            <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/55">
-              <ShieldCheck size={26} className="shrink-0 text-emerald-400/80" />
-              <span>
-                Your key is stored only in this browser (localStorage) and is sent directly to Anthropic. It never
-                touches any other server.
-              </span>
-            </div>
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/55">
+                  <ShieldCheck size={26} className="shrink-0 text-emerald-400/80" />
+                  <span>
+                    Your key is stored only in this browser (localStorage) and is sent directly to Anthropic. It never
+                    touches any other server.
+                  </span>
+                </div>
+              </>
+            )}
 
             <label className="mb-1.5 mt-5 flex items-center gap-2 text-sm font-medium text-white/80">
               <Cpu size={15} className="text-violet-400" /> Insight model

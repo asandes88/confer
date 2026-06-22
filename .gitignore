@@ -3,4 +3,9 @@ dist
 .vercel
 .netlify
 *.local
+.env
+.env.*
+!.env.example
+.wrangler
+.dev.vars
 .DS_Store

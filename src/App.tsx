@@ -29,7 +29,7 @@ import {
 } from './lib/storage'
 import { uid } from './lib/id'
 import { useSpeech } from './lib/speech'
-import { makeClient, generateCompanyInsight, generateOverview } from './lib/ai'
+import { makeClient, generateCompanyInsight, generateOverview, usingProxy } from './lib/ai'
 import { exportConference } from './lib/excel'
 import SettingsModal from './components/SettingsModal'
 import InsightCard from './components/InsightCard'
@@ -202,7 +202,7 @@ export default function App() {
   async function endAndExport() {
     if (!activeConf) return
     if (speech.listening) speech.stop()
-    if (!apiKey) {
+    if (!usingProxy && !apiKey) {
       setToast('Add your Claude API key in Settings first')
       setShowSettings(true)
       return
@@ -260,7 +260,7 @@ export default function App() {
           <button
             onClick={() => setShowSettings(true)}
             className={`-mr-1.5 rounded-full p-2.5 transition hover:bg-white/10 ${
-              apiKey ? 'text-white/60' : 'text-amber-400'
+              apiKey || usingProxy ? 'text-white/60' : 'text-amber-400'
             }`}
             title="Settings"
             aria-label="Settings"
@@ -655,6 +655,7 @@ export default function App() {
         apiKey={apiKey}
         model={model}
         lang={lang}
+        proxyMode={usingProxy}
         onClose={() => setShowSettings(false)}
         onSave={saveSettings}
       />
