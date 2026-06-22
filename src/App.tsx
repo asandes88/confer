@@ -245,7 +245,7 @@ export default function App() {
     <div className="relative min-h-full">
       <div className="aurora" />
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-3xl flex-col px-4 pb-40 pt-5 sm:px-6">
+      <div className="safe-top pb-bar relative z-10 mx-auto flex min-h-screen max-w-3xl flex-col px-4 sm:px-6">
         {/* Header */}
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -259,10 +259,11 @@ export default function App() {
           </div>
           <button
             onClick={() => setShowSettings(true)}
-            className={`rounded-full p-2 transition hover:bg-white/10 ${
+            className={`-mr-1.5 rounded-full p-2.5 transition hover:bg-white/10 ${
               apiKey ? 'text-white/60' : 'text-amber-400'
             }`}
             title="Settings"
+            aria-label="Settings"
           >
             <SettingsIcon size={20} />
           </button>
@@ -375,7 +376,7 @@ export default function App() {
             </div>
 
             {/* Company rail */}
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1.5">
+            <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1.5 sm:mx-0 sm:px-0">
               {activeConf.companies.map((c) => (
                 <button
                   key={c.id}
@@ -539,9 +540,10 @@ export default function App() {
                         <p className="flex-1 text-sm leading-relaxed text-white/85">{n.text}</p>
                         <button
                           onClick={() => deleteNote(n.id)}
-                          className="shrink-0 text-white/20 opacity-0 transition group-hover:opacity-100 hover:text-rose-400"
+                          aria-label="Delete note"
+                          className="-m-1.5 shrink-0 p-1.5 text-white/30 transition hover:text-rose-400 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} />
                         </button>
                       </motion.div>
                     ))
@@ -564,7 +566,7 @@ export default function App() {
           animate={{ y: 0, opacity: 1 }}
           className="fixed inset-x-0 bottom-0 z-20"
         >
-          <div className="mx-auto max-w-3xl px-4 pb-5 sm:px-6">
+          <div className="safe-bottom mx-auto max-w-3xl px-4 sm:px-6">
             <button
               onClick={endAndExport}
               disabled={exp.active}

@@ -27,6 +27,21 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Comfortable touch behaviour */
+  button {
+    touch-action: manipulation;
+  }
+
+  /* Prevent iOS Safari from zooming when focusing small inputs */
+  @media (max-width: 640px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
   }
 
   ::selection {
@@ -51,6 +66,26 @@
     background: rgba(255, 255, 255, 0.16);
     background-clip: padding-box;
   }
+}
+
+/* Safe-area helpers for notched / home-indicator phones */
+.safe-top {
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+}
+.pb-bar {
+  padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+}
+.safe-bottom {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+/* Hidden scrollbar (used on the horizontal company rail) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Ambient animated aurora background */
@@ -134,5 +169,24 @@
   }
   50% {
     transform: scaleY(1);
+  }
+}
+
+/* Lighter, cheaper ambient blur on phones (battery + GPU) */
+@media (max-width: 640px) {
+  .aurora::before,
+  .aurora::after {
+    filter: blur(80px);
+    opacity: 0.3;
+  }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .aurora::before,
+  .aurora::after,
+  .pulse-ring,
+  .eq-bar {
+    animation: none;
   }
 }
