@@ -1,10 +1,12 @@
-// Confer API proxy — a tiny Cloudflare Worker that keeps your Anthropic API key
-// server-side. The browser app calls this Worker; the Worker injects the secret
-// key (set via `wrangler secret put ANTHROPIC_API_KEY`) and forwards to Anthropic.
+// Confer API proxy — a tiny Cloudflare Worker with two jobs:
+//   POST /transcribe   -> transcribes uploaded audio with Whisper (Workers AI, free)
+//   POST /v1/messages  -> forwards to Anthropic with the server-side key injected
 //
-// The key is NEVER shipped to the browser, so end users never enter anything.
+// Your Anthropic key is set via `wrangler secret put ANTHROPIC_API_KEY` and never
+// reaches the browser. Transcription uses the bound `AI` (Workers AI) — no key.
 
 const UPSTREAM = 'https://api.anthropic.com'
+const WHISPER_MODEL = '@cf/openai/whisper-large-v3-turbo'
 
 export default {
   async fetch(request, env) {
@@ -20,33 +22,38 @@ export default {
       Vary: 'Origin',
     }
 
-    // CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: cors })
-    }
-
-    if (request.method !== 'POST') {
-      return json({ error: 'Method not allowed' }, 405, cors)
-    }
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
+    if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, cors)
 
     // Lightweight abuse guard: browsers always send Origin on cross-origin calls.
-    // (Set ALLOWED_ORIGIN in wrangler.toml to your site to lock this down.)
     if (allowed !== '*' && reqOrigin && reqOrigin !== allowed) {
       return json({ error: 'Origin not allowed' }, 403, cors)
     }
 
-    if (!env.ANTHROPIC_API_KEY) {
-      return json(
-        { error: 'Server is missing ANTHROPIC_API_KEY. Run: wrangler secret put ANTHROPIC_API_KEY' },
-        500,
-        cors,
-      )
+    const url = new URL(request.url)
+
+    // --- Transcription (Whisper via Workers AI) ---
+    if (url.pathname === '/transcribe') {
+      if (!env.AI) {
+        return json({ error: 'Workers AI is not bound. Add [ai] binding = "AI" to wrangler.toml and redeploy.' }, 500, cors)
+      }
+      try {
+        const buf = await request.arrayBuffer()
+        if (!buf || buf.byteLength === 0) return json({ error: 'No audio received' }, 400, cors)
+        const audio = arrayBufferToBase64(buf)
+        const out = await env.AI.run(WHISPER_MODEL, { audio })
+        return json({ text: (out && out.text ? out.text : '').trim() }, 200, cors)
+      } catch (e) {
+        return json({ error: 'Transcription failed', detail: String(e) }, 502, cors)
+      }
     }
 
-    const url = new URL(request.url)
+    // --- Anthropic proxy (everything else) ---
+    if (!env.ANTHROPIC_API_KEY) {
+      return json({ error: 'Server is missing ANTHROPIC_API_KEY. Run: wrangler secret put ANTHROPIC_API_KEY' }, 500, cors)
+    }
     const target = UPSTREAM + url.pathname + url.search // e.g. /v1/messages
     const body = await request.text()
-
     let upstreamResp
     try {
       upstreamResp = await fetch(target, {
@@ -61,13 +68,21 @@ export default {
     } catch (e) {
       return json({ error: 'Upstream request failed', detail: String(e) }, 502, cors)
     }
-
-    // Pass the Anthropic response straight back, with CORS headers added.
     const headers = new Headers()
     headers.set('content-type', upstreamResp.headers.get('content-type') || 'application/json')
     for (const [k, v] of Object.entries(cors)) headers.set(k, v)
     return new Response(upstreamResp.body, { status: upstreamResp.status, headers })
   },
+}
+
+function arrayBufferToBase64(buf) {
+  let binary = ''
+  const bytes = new Uint8Array(buf)
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
 }
 
 function json(obj, status, cors) {

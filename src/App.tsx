@@ -28,7 +28,7 @@ import {
   saveLang,
 } from './lib/storage'
 import { uid } from './lib/id'
-import { useSpeech } from './lib/speech'
+import { useRecorder, transcriptionConfigured } from './lib/recorder'
 import { makeClient, generateCompanyInsight, generateOverview, usingProxy } from './lib/ai'
 import { exportConference } from './lib/excel'
 import SettingsModal from './components/SettingsModal'
@@ -57,7 +57,7 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null)
   const [exp, setExp] = useState<ExportState>({ active: false, done: 0, total: 0, step: '' })
 
-  const speech = useSpeech()
+  const rec = useRecorder()
   const activeCompanyIdRef = useRef<string | null>(null)
   const notesEndRef = useRef<HTMLDivElement | null>(null)
 
@@ -97,7 +97,7 @@ export default function App() {
   // Auto-scroll notes
   useEffect(() => {
     notesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [activeCompany?.notes.length, speech.interim])
+  }, [activeCompany?.notes.length, rec.transcribing])
 
   // ---- mutators ----
   function updateConf(confId: string, fn: (c: Conference) => Conference) {
@@ -177,14 +177,15 @@ export default function App() {
 
   // ---- recording ----
   function toggleRecord() {
-    if (speech.listening) {
-      speech.stop()
+    if (rec.recording) {
+      rec.stop()
     } else {
+      if (rec.transcribing) return
       if (!activeCompany) {
         setToast('Add a company first')
         return
       }
-      speech.start(lang, appendNoteToActive)
+      rec.start(appendNoteToActive)
     }
   }
 
@@ -201,7 +202,7 @@ export default function App() {
   // ---- export ----
   async function endAndExport() {
     if (!activeConf) return
-    if (speech.listening) speech.stop()
+    if (rec.recording) rec.stop()
     if (!usingProxy && !apiKey) {
       setToast('Add your Claude API key in Settings first')
       setShowSettings(true)
@@ -456,7 +457,7 @@ export default function App() {
                 {/* Recorder */}
                 <div className="glass mt-4 flex flex-col items-center rounded-3xl px-5 py-7">
                   <div className="relative grid place-items-center">
-                    {speech.listening && (
+                    {rec.recording && (
                       <>
                         <span className="pulse-ring absolute h-20 w-20 rounded-full bg-rose-500/30" />
                         <span
@@ -467,52 +468,62 @@ export default function App() {
                     )}
                     <button
                       onClick={toggleRecord}
-                      className={`relative grid h-20 w-20 place-items-center rounded-full text-white shadow-xl transition active:scale-95 ${
-                        speech.listening
+                      disabled={rec.transcribing}
+                      aria-label={rec.recording ? 'Stop recording' : 'Start recording'}
+                      className={`relative grid h-20 w-20 place-items-center rounded-full text-white shadow-xl transition active:scale-95 disabled:active:scale-100 ${
+                        rec.recording
                           ? 'bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-900/40'
-                          : 'bg-gradient-to-br from-violet-600 to-cyan-500 shadow-violet-900/40 hover:brightness-110'
+                          : rec.transcribing
+                            ? 'bg-white/10'
+                            : 'bg-gradient-to-br from-violet-600 to-cyan-500 shadow-violet-900/40 hover:brightness-110'
                       }`}
                     >
-                      {speech.listening ? <Square size={26} fill="currentColor" /> : <Mic size={30} />}
+                      {rec.transcribing ? (
+                        <Loader2 size={28} className="animate-spin" />
+                      ) : rec.recording ? (
+                        <Square size={26} fill="currentColor" />
+                      ) : (
+                        <Mic size={30} />
+                      )}
                     </button>
                   </div>
 
-                  {speech.listening ? (
-                    <div className="mt-5 flex items-end gap-1" aria-hidden>
-                      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                        <span
-                          key={i}
-                          className="eq-bar w-1 rounded-full bg-gradient-to-t from-violet-500 to-cyan-400"
-                          style={{ height: 22, animationDelay: `${i * 0.12}s` }}
-                        />
-                      ))}
+                  {rec.recording ? (
+                    <div className="mt-5 flex items-center gap-3">
+                      <div className="flex items-end gap-1" aria-hidden>
+                        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                          <span
+                            key={i}
+                            className="eq-bar w-1 rounded-full bg-gradient-to-t from-violet-500 to-cyan-400"
+                            style={{ height: 22, animationDelay: `${i * 0.12}s` }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-sm tabular-nums text-white/60">
+                        {Math.floor(rec.seconds / 60)}:{String(rec.seconds % 60).padStart(2, '0')}
+                      </span>
                     </div>
+                  ) : rec.transcribing ? (
+                    <p className="mt-4 text-sm text-violet-200">Transcribing…</p>
                   ) : (
                     <p className="mt-4 text-sm text-white/50">
-                      Tap to {activeCompany.notes.length ? 'add more notes' : 'start dictating'}
+                      Tap to record {activeCompany.notes.length ? 'another note' : 'a note'}
                     </p>
                   )}
 
-                  {/* Live interim transcript */}
-                  <AnimatePresence>
-                    {(speech.listening || speech.interim) && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="mt-4 min-h-[1.25rem] text-center text-sm italic text-white/45"
-                      >
-                        {speech.interim || 'Listening…'}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-
-                  {speech.error && (
-                    <p className="mt-3 max-w-sm text-center text-xs text-amber-400">{speech.error}</p>
+                  {!rec.recording && !rec.transcribing && (
+                    <p className="mt-1 text-xs text-white/30">Tap once to start, tap again to stop.</p>
                   )}
-                  {!speech.supported && (
+
+                  {rec.error && <p className="mt-3 max-w-sm text-center text-xs text-amber-400">{rec.error}</p>}
+                  {!transcriptionConfigured && (
                     <p className="mt-3 max-w-sm text-center text-xs text-amber-400">
-                      Voice capture needs Chrome or Edge. Please open Confer in one of those browsers.
+                      Transcription isn't configured yet (the proxy Worker URL is missing).
+                    </p>
+                  )}
+                  {transcriptionConfigured && !rec.supported && (
+                    <p className="mt-3 max-w-sm text-center text-xs text-amber-400">
+                      Audio recording isn't available in this browser. Try Safari or Chrome.
                     </p>
                   )}
                 </div>

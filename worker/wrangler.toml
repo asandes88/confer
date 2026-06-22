@@ -2,6 +2,10 @@ name = "confer-proxy"
 main = "src/index.js"
 compatibility_date = "2024-11-01"
 
+# Workers AI binding — powers free Whisper transcription at POST /transcribe.
+[ai]
+binding = "AI"
+
 # Lock the proxy to your site's origin (browsers always send this).
 # Change this if you later use a custom domain.
 [vars]
